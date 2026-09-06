@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+.claude/
+CLAUDE.md
+AGENTS.md
