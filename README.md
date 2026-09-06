@@ -4,6 +4,12 @@ Unofficial Home Assistant integration for ABB Terra AC wallboxes. It talks to th
 cloud API and remote-control relay the ABB ChargerSync app uses, so the charger only needs
 to be online and bound to your ChargerSync account. Not affiliated with ABB.
 
+## Disclaimer
+
+The protocol was reverse engineered by decompiling the ABB ChargerSync Android app, and the
+integration was written with AI assistance (Claude Fable 5.1). It was then tested manually
+on a Terra AC wallbox. Use at your own risk.
+
 ## Features
 
 - Live status (idle, plugged in, charging, paused, fault, ...)
@@ -12,6 +18,7 @@ to be online and bound to your ChargerSync account. Not affiliated with ABB.
 - Max charging current slider (the app's load-balancing setting)
 - Online, charging and plugged-in binary sensors
 - Firmware and hardware version on the device page
+- Session reports (PDF, CSV or Excel) e-mailed by ABB, like the app's export
 
 ## Installation
 
@@ -34,10 +41,39 @@ with your ChargerSync e-mail and password. Every charger bound to the account is
 Options: polling interval (default 30 s, minimum 10 s) and whether to use the relay for live
 data. Without the relay only cloud metadata and cloud start/stop are available.
 
-## Testing outside Home Assistant
+## Session reports
+
+The ChargerSync app cannot download statistics directly. Its export asks the ABB cloud to
+generate the file and e-mail it to the account address, and this integration does the same.
+
+- The **Request monthly report** button on the charger device requests a PDF for the current
+  month, sent to your ChargerSync account e-mail.
+- The `abb_chargersync.request_report` action gives full control: date range (defaults to the
+  current month), format (`pdf`, `csv`, `excel`), a different recipient and a company-car-only
+  filter. It returns the recipient and range it requested, so it can be used in automations,
+  for example on the first day of each month for the previous month.
+
+```yaml
+action: abb_chargersync.request_report
+data:
+  device_id: 83b4da61fa8a53d60acc2604387572c1
+  start_date: "2026-08-01"
+  end_date: "2026-08-31"
+  format: pdf
+```
+
+## Development
+
+Unit tests cover the binary protocol and the cloud/relay clients against fake servers:
 
 ```
-pip install aiohttp cryptography
+pip install -r requirements-test.txt
+pytest
+```
+
+To exercise the real cloud without Home Assistant:
+
+```
 python3 tools/probe.py you@example.com 'password'
 ```
 
