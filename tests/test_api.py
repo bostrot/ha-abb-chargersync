@@ -39,7 +39,14 @@ class FakeCloud:
         self.app.router.add_get("/api/v2/devices", self.devices)
         self.app.router.add_post("/api/v2/devices/{id}/sessions/active", self.active)
         self.app.router.add_post("/api/v2/devices/{id}/sessions/export", self.export)
+        self.app.router.add_get("/api/v2/devices/{id}/price", self.get_price)
+        self.app.router.add_post("/api/v2/devices/{id}/price", self.set_price)
+        self.app.router.add_get("/api/v2/currencies", self.currencies)
+        self.app.router.add_get("/api/v2/devices/upgrade-rules/upgrade", self.upgrade_rule)
         self.exports: list[dict] = []
+        self.plans: list[dict] = []
+        self.plan: dict | None = {"open": 2, "currencyType": 3, "averagePrice": "0.30", "onPeakPrice": "0.40"}
+        self.rule_queries: list[dict] = []
 
     async def token(self, request: web.Request) -> web.Response:
         form = dict(await request.post())
@@ -62,6 +69,22 @@ class FakeCloud:
 
     async def active(self, request: web.Request) -> web.Response:
         return web.json_response({"status": 404, "msg": "Not found"}, status=404)
+
+    async def get_price(self, request: web.Request) -> web.Response:
+        if self.plan is None:
+            return web.json_response({"msg": "Not found"}, status=404)
+        return web.json_response(self.plan)
+
+    async def set_price(self, request: web.Request) -> web.Response:
+        self.plans.append(await request.json())
+        return web.Response(text="ok")
+
+    async def currencies(self, request: web.Request) -> web.Response:
+        return web.json_response([{"currencyType": 3, "name": "EUR", "symbol": "€"}])
+
+    async def upgrade_rule(self, request: web.Request) -> web.Response:
+        self.rule_queries.append(dict(request.query))
+        return web.json_response({"rule": {"version": "1.8.40", "ruleIsForUpdate": True, "packageInfo": {"name": "TACW 1.8.40"}}})
 
     async def export(self, request: web.Request) -> web.Response:
         self.exports.append({"id": request.match_info["id"], **(await request.json())})
@@ -173,6 +196,38 @@ async def test_export_sessions_rejects_unknown_format(cloud_env):
     with pytest.raises(api.AbbApiError):
         await cloud.export_sessions(1, date(2026, 9, 1), date(2026, 9, 6), fmt="docx")
     assert fake.exports == []
+
+
+async def test_energy_plan_roundtrip(cloud_env):
+    fake, session = cloud_env
+    cloud = api.AbbCloudClient(session, "me@example.com", "pw")
+    plan = await cloud.get_energy_plan(1)
+    assert plan["open"] == 2
+    plan["averagePrice"] = "0.35"
+    await cloud.set_energy_plan(1, plan)
+    body = fake.plans[0]
+    assert body["averagePrice"] == "0.35"
+    assert body["onPeakPrice"] == "0.40"
+    assert body["midPeakSt"] == ""
+    assert body["open"] == 2
+    assert body["currencyType"] == 3
+    assert set(body) == set(api.ENERGY_PLAN_FIELDS) | {"open", "currencyType"}
+
+
+async def test_energy_plan_missing_is_none(cloud_env):
+    fake, session = cloud_env
+    fake.plan = None
+    cloud = api.AbbCloudClient(session, "me@example.com", "pw")
+    assert await cloud.get_energy_plan(1) is None
+
+
+async def test_currencies_and_upgrade_rule(cloud_env):
+    fake, session = cloud_env
+    cloud = api.AbbCloudClient(session, "me@example.com", "pw")
+    assert (await cloud.get_currencies())[0]["symbol"] == "€"
+    rule = await cloud.get_upgrade_rule("1.8.37", "TACW1", "HW1")
+    assert rule["version"] == "1.8.40"
+    assert fake.rule_queries[0] == {"currentVersion": "1.8.37", "deviceNumber": "TACW1", "hardwareVersion": "HW1"}
 
 
 class FakeRelay:

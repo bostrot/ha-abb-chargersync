@@ -109,6 +109,18 @@
     "number": {
       "max_current": {
         "name": "Max charging current"
+      },
+      "average_price": {
+        "name": "Energy price"
+      },
+      "on_peak_price": {
+        "name": "On-peak price"
+      },
+      "mid_peak_price": {
+        "name": "Mid-peak price"
+      },
+      "off_peak_price": {
+        "name": "Off-peak price"
       }
     },
     "switch": {
@@ -145,6 +157,41 @@
       },
       "schedule_end": {
         "name": "Schedule end"
+      },
+      "on_peak_start": {
+        "name": "On-peak start"
+      },
+      "on_peak_end": {
+        "name": "On-peak end"
+      },
+      "mid_peak_start": {
+        "name": "Mid-peak start"
+      },
+      "mid_peak_end": {
+        "name": "Mid-peak end"
+      },
+      "off_peak_start": {
+        "name": "Off-peak start"
+      },
+      "off_peak_end": {
+        "name": "Off-peak end"
+      }
+    },
+    "select": {
+      "energy_plan_mode": {
+        "name": "Energy plan",
+        "state": {
+          "average": "Flat price",
+          "time_of_use": "Time of use"
+        }
+      },
+      "currency": {
+        "name": "Currency"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
       }
     }
   },

@@ -1,7 +1,7 @@
 """Constants for the ABB ChargerSync integration."""
 
 DOMAIN = "abb_chargersync"
-PLATFORMS = ["sensor", "binary_sensor", "number", "switch", "button", "time"]
+PLATFORMS = ["sensor", "binary_sensor", "number", "switch", "button", "time", "select", "update"]
 
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_USE_RELAY = "use_relay"
@@ -17,3 +17,5 @@ ATTR_FORMAT = "format"
 ATTR_EMAIL = "email"
 ATTR_COMPANY_ONLY = "company_only"
 REPORT_FORMATS = ["pdf", "csv", "excel"]
+
+ENERGY_PLAN_MODES = {"average": 1, "time_of_use": 2}

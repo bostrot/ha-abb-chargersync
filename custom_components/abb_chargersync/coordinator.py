@@ -27,6 +27,10 @@ class ChargerData:
     device_config: DeviceConfig | None = None
     schedule: ChargeSchedule | None = None
     lock_status: int | None = None
+    energy_plan: dict[str, Any] | None = None
+    currencies: list[dict[str, Any]] = field(default_factory=list)
+    firmware_rule: dict[str, Any] | None = None
+    firmware_packages: list[dict[str, Any]] = field(default_factory=list)
     relay_online: bool = False
     relay_error: str | None = None
     active_session: dict[str, Any] | None = None
@@ -62,6 +66,7 @@ class AbbChargerCoordinator(DataUpdateCoordinator[ChargerData]):
         self._power_counter = 0
         self._settings_dirty = True
         self._schedule_times: tuple[dtime, dtime] = (dtime(22, 0), dtime(6, 0))
+        self._cloud_counter = 0
 
     async def _async_update_data(self) -> ChargerData:
         data = ChargerData(device=self._device)
@@ -76,6 +81,7 @@ class AbbChargerCoordinator(DataUpdateCoordinator[ChargerData]):
             data.active_session = sessions[0] if sessions else None
         except AbbApiError as err:
             _LOGGER.debug("active sessions fetch failed: %s", err)
+        await self._read_cloud_settings(data)
 
         if self.relay is not None and data.device.get("online", 1):
             try:
@@ -118,6 +124,59 @@ class AbbChargerCoordinator(DataUpdateCoordinator[ChargerData]):
                     data.schedule = self.data.schedule
                     data.lock_status = self.data.lock_status
         return data
+
+    async def _read_cloud_settings(self, data: ChargerData) -> None:
+        """Energy plan every 5th poll, firmware availability about hourly."""
+        prev = self.data
+        self._cloud_counter += 1
+        if prev is not None and not self._settings_dirty and self._cloud_counter % 5:
+            data.energy_plan = prev.energy_plan
+            data.currencies = prev.currencies
+            data.firmware_rule = prev.firmware_rule
+            data.firmware_packages = prev.firmware_packages
+            return
+        try:
+            data.energy_plan = await self.cloud.get_energy_plan(self.device_id)
+        except AbbApiError as err:
+            _LOGGER.debug("energy plan fetch failed: %s", err)
+            data.energy_plan = prev.energy_plan if prev else None
+        if prev is None or not prev.currencies:
+            try:
+                data.currencies = await self.cloud.get_currencies()
+            except AbbApiError as err:
+                _LOGGER.debug("currencies fetch failed: %s", err)
+        else:
+            data.currencies = prev.currencies
+        if prev is None or self._cloud_counter % 120 == 0:
+            await self._read_firmware(data)
+        else:
+            data.firmware_rule = prev.firmware_rule
+            data.firmware_packages = prev.firmware_packages
+
+    async def _read_firmware(self, data: ChargerData) -> None:
+        current = data.firmware or (self.data.firmware if self.data else "") or data.device.get("softVersion") or ""
+        try:
+            data.firmware_rule = await self.cloud.get_upgrade_rule(
+                current, self.device_number, data.device.get("hardwareVersion") or ""
+            )
+        except AbbApiError as err:
+            _LOGGER.debug("upgrade rule fetch failed: %s", err)
+        try:
+            data.firmware_packages = await self.cloud.get_firmware_packages(self.device_id)
+        except AbbApiError as err:
+            _LOGGER.debug("firmware packages fetch failed: %s", err)
+
+    async def async_update_energy_plan(self, **changes: Any) -> None:
+        plan = dict(self.data.energy_plan or {}) if self.data else {}
+        plan.update(changes)
+        await self.cloud.set_energy_plan(self.device_id, plan)
+        self._settings_dirty = True
+        await self.async_request_refresh()
+
+    async def async_refresh_firmware(self) -> None:
+        self._cloud_counter = 0
+        self._settings_dirty = True
+        await self.async_request_refresh()
 
     @property
     def utc_offset_hours(self) -> int:

@@ -23,6 +23,18 @@ CLIENT_SECRET = "f1a6d022-8a8e-453c-862e-ba0d3c5b4521"
 APP_VERSION = "3.5.0"
 
 REPORT_FORMATS = ("pdf", "csv", "excel")
+ENERGY_PLAN_FIELDS = (
+    "onPeakSt",
+    "onPeakEt",
+    "onPeakPrice",
+    "midPeakSt",
+    "midPeakEt",
+    "midPeakPrice",
+    "offPeakSt",
+    "offPeakEt",
+    "offPeakPrice",
+    "averagePrice",
+)
 
 WS_PING_INTERVAL = 30
 WS_RESPONSE_TIMEOUT = 15
@@ -184,6 +196,37 @@ class AbbCloudClient:
 
     async def get_auto_export(self, device_id: int) -> dict[str, Any]:
         return await self.request("GET", f"api/v2/devices/{device_id}/sessions/auto-export")
+
+    async def get_energy_plan(self, device_id: int) -> dict[str, Any] | None:
+        try:
+            plan = await self.request("GET", f"api/v2/devices/{device_id}/price")
+        except AbbApiError as err:
+            if "-> 404" in str(err):
+                return None
+            raise
+        return plan if isinstance(plan, dict) and plan else None
+
+    async def set_energy_plan(self, device_id: int, plan: dict[str, Any]) -> None:
+        body = {key: plan.get(key, "") for key in ENERGY_PLAN_FIELDS}
+        body["open"] = int(plan.get("open") or 1)
+        body["currencyType"] = int(plan.get("currencyType") or 0)
+        await self.request("POST", f"api/v2/devices/{device_id}/price", json=body)
+
+    async def get_currencies(self) -> list[dict[str, Any]]:
+        res = await self.request("GET", "api/v2/currencies")
+        return res if isinstance(res, list) else []
+
+    async def get_upgrade_rule(self, current_version: str, device_number: str, hardware_version: str) -> dict[str, Any] | None:
+        res = await self.request(
+            "GET",
+            "api/v2/devices/upgrade-rules/upgrade",
+            params={"currentVersion": current_version, "deviceNumber": device_number, "hardwareVersion": hardware_version},
+        )
+        return res.get("rule") if isinstance(res, dict) else None
+
+    async def get_firmware_packages(self, device_id: int) -> list[dict[str, Any]]:
+        res = await self.request("GET", f"api/v2/devices/{device_id}/latest-upgrade-packages")
+        return res if isinstance(res, list) else []
 
     async def get_schedules(self, device_id: int) -> list[dict[str, Any]]:
         return await self.request("GET", f"api/v2/devices/{device_id}/schedules")
