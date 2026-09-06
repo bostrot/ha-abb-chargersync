@@ -123,14 +123,14 @@ Path is relative to API_HOST. `{id}` = numeric charger id from `/devices`.
 | GET/POST | `api/v2/devices/{id}/sessions/auto-export` | `AutoExport {enabled, format, cycle:int, email, cardNumber?, isCompanyCarSession?, userId}`; monthly report mailed on the first day of the month |
 | POST | `api/v2/sessions/{id}` | toggle company-car flag |
 | GET | `api/v2/devices/{id}/trends?startTime=&endTime=&type=&cardNumber=&isCompanyCarSession=` | statistics |
-| GET/POST | `api/v2/devices/{id}/price` | energy plan |
+| GET/POST | `api/v2/devices/{id}/price` | `EnergyPlan {open: 1=flat/2=time-of-use, currencyType, averagePrice, onPeakSt/Et/Price, midPeakSt/Et/Price, offPeakSt/Et/Price}`; times `HH:mm`, prices as strings; GET → 404 when unset |
 | GET | `api/v2/devices/{id}/schedules` | → `List<Schedule{id,deviceId,userId,startTime,endTime,open}>` |
 | POST | `api/v2/devices/{id}/schedules` | JSON `{startTime,endTime,open}` |
 | POST | `api/v2/schedules/{id}` | update |
 | DELETE | `api/v2/schedules/{id}` | |
 | POST | `api/v2/devices/{id}/cipher` | → `{cipher:{info,secretKey}, deviceNumber, userId}` — AES key for **encrypted BLE** only; not needed for relay |
 | GET | `api/v2/devices/{id}/latest-upgrade-packages` | firmware |
-| GET | `api/v2/devices/upgrade-rules/upgrade|downgrade?currentVersion=&deviceNumber=&hardwareVersion=` | |
+| GET | `api/v2/devices/upgrade-rules/upgrade|downgrade?currentVersion=&deviceNumber=&hardwareVersion=` | `{rule: {version, ruleIsForUpdate, packageInfo: {url, checksum, name, featureDetails, isMandatory, autoInstall}}}`; the app flashes packages over BLE only (0xB9 begin, charger pulls 0xBA blocks, 0xBB done) |
 | GET/POST/PUT/DELETE | `api/v2/rfid-cards[/{id}]` | RFID management |
 | GET | `api/v2/grid-meters` | |
 | GET | `api/v2/countries`, `api/v2/countries/{code}`, `api/v2/countries/{code}/regions`, `api/v2/regions/{code}`, `api/v2/currencies` | reference data |

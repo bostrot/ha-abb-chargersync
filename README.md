@@ -53,9 +53,11 @@ These mirror the app's device settings and need the relay connection:
 | Charging schedule (switch), Schedule start / end (time) | Free vending schedule | Daily window in which charging is allowed. Times are stored on the charger in UTC with whole-hour offsets, exactly like the app. Editing the times while the schedule is off keeps them for the next enable. |
 | Cable lock (switch) | Cable stuck | Forces the connector lock closed or open |
 | Max charging current (number) | Load balance | Current limit in amps |
+| Energy plan (select), Energy price / On-, Mid-, Off-peak price (number), peak start/end (time), Currency (select) | Energy plan | Cloud-side tariff used for the cost statistics. "Flat price" uses the energy price; "Time of use" uses the three peak windows. The six window times are disabled by default. |
+| Firmware (update) | Firmware update | Shows the installed version and the version ABB offers, with release notes. Installing is not possible from Home Assistant: the app only flashes firmware over a direct Bluetooth link, never through the cloud relay. |
 
-Not implemented: firmware updates, network setup, solar or grid-meter charging modes
-(need extra hardware), the energy price plan, and RFID card management.
+Not implemented: firmware installation (Bluetooth only, see above), network setup, solar or
+grid-meter charging modes (need extra hardware), and RFID card management.
 
 ## Session reports
 
