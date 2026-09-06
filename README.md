@@ -19,6 +19,8 @@ on a Terra AC wallbox. Use at your own risk.
 - Online, charging and plugged-in binary sensors
 - Firmware and hardware version on the device page
 - Session reports (PDF, CSV or Excel) e-mailed by ABB, like the app's export
+- Charger settings from the app: free vending (charge without RFID), daily charging
+  schedule window, and the cable lock for a stuck cable
 
 ## Installation
 
@@ -40,6 +42,20 @@ with your ChargerSync e-mail and password. Every charger bound to the account is
 
 Options: polling interval (default 30 s, minimum 10 s) and whether to use the relay for live
 data. Without the relay only cloud metadata and cloud start/stop are available.
+
+## Settings
+
+These mirror the app's device settings and need the relay connection:
+
+| Entity | App screen | Notes |
+|---|---|---|
+| Free vending (switch) | Free vending | Charge without presenting an RFID card |
+| Charging schedule (switch), Schedule start / end (time) | Free vending schedule | Daily window in which charging is allowed. Times are stored on the charger in UTC with whole-hour offsets, exactly like the app. Editing the times while the schedule is off keeps them for the next enable. |
+| Cable lock (switch) | Cable stuck | Forces the connector lock closed or open |
+| Max charging current (number) | Load balance | Current limit in amps |
+
+Not implemented: firmware updates, network setup, solar or grid-meter charging modes
+(need extra hardware), the energy price plan, and RFID card management.
 
 ## Session reports
 
