@@ -1,7 +1,5 @@
 # ABB ChargerSync for Home Assistant
 
-<img src="custom_components/abb_chargersync/brand/logo.png" alt="ABB" width="160">
-
 Unofficial Home Assistant integration for ABB Terra AC wallboxes. It talks to the same
 cloud API and remote-control relay the ABB ChargerSync app uses, so the charger only needs
 to be online and bound to your ChargerSync account. Not affiliated with ABB.
