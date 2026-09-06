@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import time
-from datetime import date, datetime
+from datetime import date, datetime, time as dtime
 from typing import Any
 from urllib.parse import quote
 
@@ -447,6 +447,48 @@ class AbbRelayClient:
 
     async def stop_charging(self) -> None:
         await self._command(proto.CMD_STOP_CHARGE, proto.build_stop_charge)
+
+    async def read_device_config(self) -> proto.DeviceConfig:
+        resp = await self._command(proto.CMD_QUERY_DEVICE_CONFIG, proto.build_query_device_config)
+        return proto.parse_device_config(resp.payload)
+
+    async def set_free_vending(self, enabled: bool) -> proto.DeviceConfig:
+        current = await self.read_device_config()
+        resp = await self._command(proto.CMD_SET_DEVICE_CONFIG, proto.build_set_device_config, current.with_free_vending(enabled))
+        if proto.parse_simple_result(resp.payload) != 0:
+            raise AbbApiError("charger rejected device configuration")
+        updated = await self.read_device_config()
+        if updated.free_vending != enabled:
+            raise AbbApiError("charger did not apply free vending setting")
+        return updated
+
+    async def read_schedule(self, utc_offset_hours: int = 0) -> proto.ChargeSchedule:
+        resp = await self._command(proto.CMD_QUERY_CHARGE_MODE, proto.build_query_charge_mode)
+        return proto.parse_charge_mode(resp.payload, utc_offset_hours)
+
+    async def set_schedule(self, enabled: bool, start: dtime, end: dtime, utc_offset_hours: int = 0) -> proto.ChargeSchedule:
+        resp = await self._command(proto.CMD_SET_CHARGE_MODE, proto.build_set_charge_mode, enabled, start, end, utc_offset_hours)
+        if proto.parse_simple_result(resp.payload) != 0:
+            raise AbbApiError("charger rejected schedule")
+        return await self.read_schedule(utc_offset_hours)
+
+    async def unlock_cable(self) -> None:
+        resp = await self._command(proto.CMD_FORCE_UNLOCK, proto.build_force_unlock)
+        res = proto.parse_lock_result(resp.payload)
+        if not res.ok:
+            raise AbbApiError(f"unlock failed: {res.message}")
+
+    async def lock_cable(self) -> None:
+        resp = await self._command(proto.CMD_FORCE_LOCK, proto.build_force_lock)
+        res = proto.parse_lock_result(resp.payload)
+        if not res.ok:
+            raise AbbApiError(f"lock failed: {res.message}")
+
+    async def read_lock_status(self) -> int | None:
+        resp = await self._command(
+            proto.CMD_QUERY_CHARGER_CONFIGURATION, proto.build_query_charger_configuration, proto.CHARGER_CONFIG_ELOCK
+        )
+        return proto.parse_charger_configuration(resp.payload).value
 
     async def sys_info(self) -> proto.SysInfo:
         resp = await self._command(proto.CMD_READ_SYS_INFO, proto.build_query_sys_info)

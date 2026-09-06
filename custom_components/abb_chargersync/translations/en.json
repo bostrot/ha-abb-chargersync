@@ -114,6 +114,15 @@
     "switch": {
       "charging": {
         "name": "Charging"
+      },
+      "free_vending": {
+        "name": "Free vending"
+      },
+      "schedule": {
+        "name": "Charging schedule"
+      },
+      "cable_lock": {
+        "name": "Cable lock"
       }
     },
     "button": {
@@ -128,6 +137,14 @@
       },
       "monthly_report": {
         "name": "Request monthly report"
+      }
+    },
+    "time": {
+      "schedule_start": {
+        "name": "Schedule start"
+      },
+      "schedule_end": {
+        "name": "Schedule end"
       }
     }
   },

@@ -73,3 +73,4 @@ class ReconnectButton(AbbChargerEntity, ButtonEntity):
     async def async_press(self) -> None:
         await self.coordinator.async_shutdown_relay()
         await self.coordinator.async_request_refresh()
+

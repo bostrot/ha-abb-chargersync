@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time as dtime, timedelta
 import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import AbbApiError, AbbAuthError, AbbChargerOffline, AbbCloudClient, AbbRelayClient
 from .const import DOMAIN
-from .protocol import ChargerStatus, PowerControl
+from .protocol import ChargeSchedule, ChargerStatus, DeviceConfig, PowerControl
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +24,9 @@ class ChargerData:
     device: dict[str, Any]
     status: ChargerStatus | None = None
     power: PowerControl | None = None
+    device_config: DeviceConfig | None = None
+    schedule: ChargeSchedule | None = None
+    lock_status: int | None = None
     relay_online: bool = False
     relay_error: str | None = None
     active_session: dict[str, Any] | None = None
@@ -56,6 +60,8 @@ class AbbChargerCoordinator(DataUpdateCoordinator[ChargerData]):
         self.device_number = device["deviceNumber"]
         self._device = device
         self._power_counter = 0
+        self._settings_dirty = True
+        self._schedule_times: tuple[dtime, dtime] = (dtime(22, 0), dtime(6, 0))
 
     async def _async_update_data(self) -> ChargerData:
         data = ChargerData(device=self._device)
@@ -78,12 +84,17 @@ class AbbChargerCoordinator(DataUpdateCoordinator[ChargerData]):
                 data.firmware = self.relay.firmware_version
                 data.hardware = self.relay.hardware_version
                 self._power_counter += 1
-                prev = self.data.power if self.data else None
-                if prev is None or self._power_counter >= 5:
+                prev = self.data if self.data else None
+                if prev is None or prev.power is None or self._settings_dirty or self._power_counter >= 5:
                     self._power_counter = 0
+                    self._settings_dirty = False
                     data.power = await self.relay.read_power_control()
+                    await self._read_settings(data)
                 else:
-                    data.power = prev
+                    data.power = prev.power
+                    data.device_config = prev.device_config
+                    data.schedule = prev.schedule
+                    data.lock_status = prev.lock_status
             except AbbChargerOffline as err:
                 data.relay_error = str(err)
                 await self.relay.close()
@@ -103,7 +114,67 @@ class AbbChargerCoordinator(DataUpdateCoordinator[ChargerData]):
                     data.firmware = self.data.firmware
                     data.hardware = self.data.hardware
                     data.power = self.data.power
+                    data.device_config = self.data.device_config
+                    data.schedule = self.data.schedule
+                    data.lock_status = self.data.lock_status
         return data
+
+    @property
+    def utc_offset_hours(self) -> int:
+        offset = dt_util.now().utcoffset()
+        return int(offset.total_seconds() // 3600) if offset else 0
+
+    async def _read_settings(self, data: ChargerData) -> None:
+        """Rarely changing settings; each is optional so one unsupported command does not break the poll."""
+        assert self.relay is not None
+        for name, reader in (
+            ("device_config", self.relay.read_device_config),
+            ("schedule", lambda: self.relay.read_schedule(self.utc_offset_hours)),
+            ("lock_status", self.relay.read_lock_status),
+        ):
+            try:
+                setattr(data, name, await reader())
+            except AbbChargerOffline:
+                raise
+            except AbbApiError as err:
+                _LOGGER.debug("%s read failed for %s: %s", name, self.device_number, err)
+        if data.schedule and data.schedule.enabled:
+            self._schedule_times = (data.schedule.start, data.schedule.end)
+
+    def _require_relay(self) -> AbbRelayClient:
+        if not self.relay:
+            raise AbbApiError("this setting requires the relay connection")
+        return self.relay
+
+    async def async_set_free_vending(self, enabled: bool) -> None:
+        await self._require_relay().set_free_vending(enabled)
+        self._settings_dirty = True
+        await self.async_request_refresh()
+
+    @property
+    def schedule_times(self) -> tuple[dtime, dtime]:
+        """Window to apply when the schedule is enabled; kept while it is disabled."""
+        return self._schedule_times
+
+    async def async_set_schedule(self, enabled: bool, start: dtime | None = None, end: dtime | None = None) -> None:
+        cur_start, cur_end = self._schedule_times
+        self._schedule_times = (start or cur_start, end or cur_end)
+        if not enabled and self.data and self.data.schedule and not self.data.schedule.enabled:
+            self.async_update_listeners()
+            return
+        await self._require_relay().set_schedule(enabled, *self._schedule_times, self.utc_offset_hours)
+        self._settings_dirty = True
+        await self.async_request_refresh()
+
+    async def async_unlock_cable(self) -> None:
+        await self._require_relay().unlock_cable()
+        self._settings_dirty = True
+        await self.async_request_refresh()
+
+    async def async_lock_cable(self) -> None:
+        await self._require_relay().lock_cable()
+        self._settings_dirty = True
+        await self.async_request_refresh()
 
     async def async_shutdown_relay(self) -> None:
         if self.relay:
@@ -136,8 +207,6 @@ class AbbChargerCoordinator(DataUpdateCoordinator[ChargerData]):
         )
 
     async def async_set_max_current(self, amps: int) -> None:
-        if not self.relay:
-            raise AbbApiError("max current requires the relay connection")
-        await self.relay.set_max_current(amps)
-        self._power_counter = 99
+        await self._require_relay().set_max_current(amps)
+        self._settings_dirty = True
         await self.async_request_refresh()

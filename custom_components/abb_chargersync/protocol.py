@@ -17,6 +17,7 @@ Plaintext frame layout (all multi-byte integers little-endian):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import time as dtime
 import struct
 import time
 
@@ -29,9 +30,18 @@ CMD_STOP_CHARGE = 0xB6
 CMD_HISTORY_RECORDS = 0xB7
 CMD_READ_TOTAL_CHARGE = 0xB8
 CMD_POWER_CONTROL = 0xC0
+CMD_FORCE_UNLOCK = 0xD1
+CMD_SET_DEVICE_CONFIG = 0xDC
+CMD_QUERY_DEVICE_CONFIG = 0xDD
 CMD_QUERY_POWER_PERCENT = 0xE0
 CMD_QUERY_CHARGE_MODE = 0xE6
+CMD_FORCE_LOCK = 0xE7
+CMD_QUERY_CHARGER_CONFIGURATION = 0xF0
 CMD_IDENTITY_AUTH = 0xFE
+
+DEVICE_CONFIG_FREE_VENDING = 0x04
+CHARGER_CONFIG_ELOCK = 3
+ELOCK_LOCKED = 1
 
 START_BYTE = 0xFE
 HEADER_LEN = 16
@@ -192,6 +202,46 @@ def build_query_total_energy(token: bytes) -> bytes:
     return build_frame(CMD_READ_TOTAL_CHARGE, None, token)
 
 
+def build_query_device_config(token: bytes) -> bytes:
+    return build_frame(CMD_QUERY_DEVICE_CONFIG, None, token)
+
+
+def build_set_device_config(token: bytes, config: int) -> bytes:
+    return build_frame(CMD_SET_DEVICE_CONFIG, bytes([config & 0xFF, 0]), token)
+
+
+def build_query_charge_mode(token: bytes) -> bytes:
+    return build_frame(CMD_QUERY_CHARGE_MODE, None, token)
+
+
+def build_set_charge_mode(token: bytes, enabled: bool, start: dtime, end: dtime, utc_offset_hours: int = 0) -> bytes:
+    """Charge window; the charger stores hours in UTC, whole-hour offsets only (like the app)."""
+    if not enabled:
+        return build_frame(CMD_SET_CHARGE_MODE, bytes(5), token)
+    payload = bytes(
+        [
+            1,
+            (start.hour - utc_offset_hours) % 24,
+            start.minute,
+            (end.hour - utc_offset_hours) % 24,
+            end.minute,
+        ]
+    )
+    return build_frame(CMD_SET_CHARGE_MODE, payload, token)
+
+
+def build_force_unlock(token: bytes) -> bytes:
+    return build_frame(CMD_FORCE_UNLOCK, None, token)
+
+
+def build_force_lock(token: bytes) -> bytes:
+    return build_frame(CMD_FORCE_LOCK, b"", token)
+
+
+def build_query_charger_configuration(token: bytes, config_type: int) -> bytes:
+    return build_frame(CMD_QUERY_CHARGER_CONFIGURATION, struct.pack("<H", config_type), token)
+
+
 @dataclass
 class IdentityAuthResult:
     success: bool
@@ -334,3 +384,102 @@ def parse_sys_info(payload: bytes) -> SysInfo:
 
 def parse_simple_result(payload: bytes) -> int:
     return payload[0] if payload else 0
+
+
+@dataclass
+class DeviceConfig:
+    config: int = 0
+    expand: int = 0
+
+    @property
+    def free_vending(self) -> bool:
+        return bool(self.config & DEVICE_CONFIG_FREE_VENDING)
+
+    def with_free_vending(self, enabled: bool) -> int:
+        if enabled:
+            return self.config | DEVICE_CONFIG_FREE_VENDING
+        return self.config & ~DEVICE_CONFIG_FREE_VENDING & 0xFF
+
+
+def parse_device_config(payload: bytes) -> DeviceConfig:
+    dc = DeviceConfig()
+    if len(payload) >= 1:
+        dc.config = payload[0]
+    if len(payload) >= 2:
+        dc.expand = payload[1]
+    return dc
+
+
+@dataclass
+class ChargeSchedule:
+    enabled: bool = False
+    start: dtime = dtime(0, 0)
+    end: dtime = dtime(0, 0)
+
+
+def parse_charge_mode(payload: bytes, utc_offset_hours: int = 0) -> ChargeSchedule:
+    sched = ChargeSchedule()
+    if not payload:
+        return sched
+    sched.enabled = payload[0] == 1
+    if sched.enabled and len(payload) >= 5:
+        sched.start = dtime((payload[1] + utc_offset_hours) % 24, min(payload[2], 59))
+        sched.end = dtime((payload[3] + utc_offset_hours) % 24, min(payload[4], 59))
+    return sched
+
+
+LOCK_DETAILS = {
+    0: "ok",
+    1: "no electronic lock",
+    257: "timeout",
+    258: "lock not responding",
+    259: "lock failed",
+}
+
+
+@dataclass
+class LockResult:
+    result: int = 0
+    detail: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return self.result == 0 and self.detail == 0
+
+    @property
+    def message(self) -> str:
+        return LOCK_DETAILS.get(self.detail, f"error {self.detail}")
+
+
+def parse_lock_result(payload: bytes) -> LockResult:
+    res = LockResult()
+    if len(payload) >= 1:
+        res.result = payload[0]
+    if len(payload) >= 3:
+        res.detail = _u(payload[1:3])
+    return res
+
+
+@dataclass
+class ChargerConfiguration:
+    config_type: int = 0
+    result: int = -1
+    content: bytes = b""
+
+    @property
+    def value(self) -> int | None:
+        if self.result != 0 or not self.content:
+            return None
+        return _u(self.content)
+
+
+def parse_charger_configuration(payload: bytes) -> ChargerConfiguration:
+    cc = ChargerConfiguration()
+    if len(payload) < 3:
+        return cc
+    cc.config_type = _u(payload[0:2])
+    cc.result = payload[2]
+    if cc.result == 0 and len(payload) >= 5:
+        length = _u(payload[3:5])
+        cc.content = bytes(payload[5 : 5 + length])
+    return cc

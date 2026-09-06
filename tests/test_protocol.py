@@ -1,4 +1,5 @@
 import struct
+from datetime import time
 
 import pytest
 
@@ -178,3 +179,52 @@ def test_parse_sys_info():
 def test_parse_simple_result():
     assert p.parse_simple_result(b"") == 0
     assert p.parse_simple_result(b"\x01") == 1
+
+
+def test_device_config_free_vending_bit():
+    cfg = p.parse_device_config(b"\x05\x01")
+    assert cfg.free_vending
+    assert cfg.expand == 1
+    assert cfg.with_free_vending(False) == 0x01
+    assert p.parse_device_config(b"\x01").with_free_vending(True) == 0x05
+    assert not p.parse_device_config(b"").free_vending
+
+
+def test_set_device_config_payload():
+    assert p.parse_frame(p.build_set_device_config(TOKEN, 0x05)).payload == b"\x05\x00"
+
+
+def test_charge_mode_roundtrip_with_timezone():
+    frame = p.parse_frame(p.build_set_charge_mode(TOKEN, True, time(1, 30), time(6, 15), utc_offset_hours=2))
+    assert frame.cmd == p.CMD_SET_CHARGE_MODE
+    assert frame.payload == bytes([1, 23, 30, 4, 15])
+    sched = p.parse_charge_mode(frame.payload, utc_offset_hours=2)
+    assert sched.enabled
+    assert (sched.start, sched.end) == (time(1, 30), time(6, 15))
+
+
+def test_charge_mode_disabled():
+    assert p.parse_frame(p.build_set_charge_mode(TOKEN, False, time(1), time(2))).payload == bytes(5)
+    sched = p.parse_charge_mode(b"\x00\x16\x00\x06\x00")
+    assert not sched.enabled
+    assert not p.parse_charge_mode(b"").enabled
+
+
+def test_lock_frames_and_results():
+    assert p.parse_frame(p.build_force_unlock(TOKEN)).cmd == p.CMD_FORCE_UNLOCK
+    assert p.parse_frame(p.build_force_lock(TOKEN)).cmd == p.CMD_FORCE_LOCK
+    assert p.parse_lock_result(b"\x00\x00\x00").ok
+    res = p.parse_lock_result(b"\x00\x01\x00")
+    assert not res.ok
+    assert res.message == "no electronic lock"
+    assert p.parse_lock_result(b"\x01\x02\x01").message == "lock not responding"
+
+
+def test_charger_configuration_query_and_parse():
+    frame = p.parse_frame(p.build_query_charger_configuration(TOKEN, p.CHARGER_CONFIG_ELOCK))
+    assert frame.cmd == p.CMD_QUERY_CHARGER_CONFIGURATION
+    assert frame.payload == b"\x03\x00"
+    cc = p.parse_charger_configuration(b"\x03\x00\x00\x01\x00\x01")
+    assert (cc.config_type, cc.result, cc.value) == (3, 0, 1)
+    assert p.parse_charger_configuration(b"\x03\x00\x01").value is None
+    assert p.parse_charger_configuration(b"").value is None

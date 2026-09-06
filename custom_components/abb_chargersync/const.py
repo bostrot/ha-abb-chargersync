@@ -1,7 +1,7 @@
 """Constants for the ABB ChargerSync integration."""
 
 DOMAIN = "abb_chargersync"
-PLATFORMS = ["sensor", "binary_sensor", "number", "switch", "button"]
+PLATFORMS = ["sensor", "binary_sensor", "number", "switch", "button", "time"]
 
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_USE_RELAY = "use_relay"
