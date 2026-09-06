@@ -10,12 +10,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import AbbConfigEntry
 from .api import AbbApiError
 from .entity import AbbChargerEntity
+from .services import current_month_range
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AbbConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     ents = []
     for c in entry.runtime_data.coordinators.values():
-        ents += [StartButton(c), StopButton(c), ReconnectButton(c)]
+        ents += [StartButton(c), StopButton(c), MonthlyReportButton(c), ReconnectButton(c)]
     async_add_entities(ents)
 
 
@@ -43,6 +44,23 @@ class StopButton(AbbChargerEntity, ButtonEntity):
             await self.coordinator.async_stop_charging()
         except AbbApiError as err:
             raise HomeAssistantError(str(err)) from err
+
+
+class MonthlyReportButton(AbbChargerEntity, ButtonEntity):
+    """Ask ABB to e-mail a PDF report of this month's sessions to the account address."""
+
+    _attr_translation_key = "monthly_report"
+    _attr_icon = "mdi:file-pdf-box"
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "monthly_report")
+
+    async def async_press(self) -> None:
+        start, end = current_month_range()
+        try:
+            await self.coordinator.async_request_report(start, end, fmt="pdf")
+        except AbbApiError as err:
+            raise HomeAssistantError(f"Report request failed: {err}") from err
 
 
 class ReconnectButton(AbbChargerEntity, ButtonEntity):

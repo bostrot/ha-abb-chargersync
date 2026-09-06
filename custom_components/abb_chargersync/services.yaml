@@ -1,0 +1,28 @@
+request_report:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: abb_chargersync
+    start_date:
+      selector:
+        date:
+    end_date:
+      selector:
+        date:
+    format:
+      default: pdf
+      selector:
+        select:
+          options:
+            - pdf
+            - csv
+            - excel
+    email:
+      selector:
+        text:
+          type: email
+    company_only:
+      selector:
+        boolean:

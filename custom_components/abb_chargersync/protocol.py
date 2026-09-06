@@ -70,7 +70,7 @@ class ProtocolError(Exception):
 
 
 def _des_ecb_encrypt(data: bytes, key: bytes) -> bytes:
-    """DES/ECB/PKCS5; an 8-byte key makes TripleDES act as single DES."""
+    """DES/ECB/PKCS5; TripleDES with K1=K2=K3 is single DES."""
     pad = 8 - (len(data) % 8)
     data = data + bytes([pad]) * pad
     try:
@@ -79,7 +79,7 @@ def _des_ecb_encrypt(data: bytes, key: bytes) -> bytes:
         from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES
     from cryptography.hazmat.primitives.ciphers import Cipher, modes
 
-    enc = Cipher(TripleDES(key), modes.ECB()).encryptor()
+    enc = Cipher(TripleDES(key * 3), modes.ECB()).encryptor()
     return enc.update(data) + enc.finalize()
 
 

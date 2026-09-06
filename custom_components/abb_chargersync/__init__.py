@@ -13,6 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import AbbApiError, AbbAuthError, AbbCloudClient, AbbRelayClient
 from .const import CONF_SCAN_INTERVAL, CONF_USE_RELAY, DEFAULT_SCAN_INTERVAL, PLATFORMS
 from .coordinator import AbbChargerCoordinator
+from .services import async_setup_services
 
 
 @dataclass
@@ -47,6 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AbbConfigEntry) -> bool:
         coordinators[int(dev["id"])] = coord
 
     entry.runtime_data = AbbRuntimeData(cloud, coordinators)
+    async_setup_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True

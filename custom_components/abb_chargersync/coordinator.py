@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 import logging
 from typing import Any
 
@@ -122,6 +122,18 @@ class AbbChargerCoordinator(DataUpdateCoordinator[ChargerData]):
         elif self.data and self.data.active_session:
             await self.cloud.cloud_stop_session(str(self.data.active_session["id"]))
         await self.async_request_refresh()
+
+    async def async_request_report(
+        self,
+        start: datetime | date,
+        end: datetime | date,
+        fmt: str = "pdf",
+        email: str | None = None,
+        company_only: bool | None = None,
+    ) -> str:
+        return await self.cloud.export_sessions(
+            self.device_id, start, end, fmt=fmt, email=email, company_only=company_only
+        )
 
     async def async_set_max_current(self, amps: int) -> None:
         if not self.relay:

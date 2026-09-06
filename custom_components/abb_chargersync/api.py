@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import time
+from datetime import date, datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -20,6 +21,8 @@ WS_HOST = "wss://abb.api.chargedot.com:18971"
 CLIENT_ID = "3710400e-1c02-4175-84ea-40a227c0dcf6"
 CLIENT_SECRET = "f1a6d022-8a8e-453c-862e-ba0d3c5b4521"
 APP_VERSION = "3.5.0"
+
+REPORT_FORMATS = ("pdf", "csv", "excel")
 
 WS_PING_INTERVAL = 30
 WS_RESPONSE_TIMEOUT = 15
@@ -49,6 +52,7 @@ class AbbCloudClient:
         self._expires_at: float = 0
         self.user_id: int | None = None
         self.session_id: str | None = None
+        self.account_email: str | None = None
         self._lock = asyncio.Lock()
 
     async def login(self) -> None:
@@ -124,6 +128,7 @@ class AbbCloudClient:
         user = await self.request("GET", "api/v2/users/me")
         self.user_id = int(user["id"])
         self.session_id = user.get("sessionId") or None
+        self.account_email = user.get("authen") or None
         return user
 
     async def get_devices(self) -> list[dict[str, Any]]:
@@ -149,6 +154,37 @@ class AbbCloudClient:
     async def cloud_stop_session(self, session_id: str) -> Any:
         return await self.request("DELETE", f"api/v2/active-sessions/{session_id}")
 
+    async def export_sessions(
+        self,
+        device_id: int,
+        start: datetime | date,
+        end: datetime | date,
+        fmt: str = "pdf",
+        email: str | None = None,
+        card_number: str | None = None,
+        company_only: bool | None = None,
+    ) -> str:
+        """Ask the cloud to e-mail a session report. Returns the recipient address."""
+        if fmt not in REPORT_FORMATS:
+            raise AbbApiError(f"unsupported report format {fmt!r}")
+        recipient = email or self.account_email
+        if not recipient:
+            await self.get_user()
+            recipient = self.account_email or self.email
+        body = {
+            "startTime": _api_datetime(start, end_of_day=False),
+            "endTime": _api_datetime(end, end_of_day=True),
+            "cardNumber": card_number,
+            "format": fmt,
+            "email": recipient,
+            "isCompanyCarSession": company_only,
+        }
+        await self.request("POST", f"api/v2/devices/{device_id}/sessions/export", json=body)
+        return recipient
+
+    async def get_auto_export(self, device_id: int) -> dict[str, Any]:
+        return await self.request("GET", f"api/v2/devices/{device_id}/sessions/auto-export")
+
     async def get_schedules(self, device_id: int) -> list[dict[str, Any]]:
         return await self.request("GET", f"api/v2/devices/{device_id}/schedules")
 
@@ -156,6 +192,12 @@ class AbbCloudClient:
         return await self.request(
             "GET", f"api/v2/devices/{device_id}/sessions", params={"page": page, "per_page": per_page}
         )
+
+
+def _api_datetime(value: datetime | date, end_of_day: bool) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    return f"{value:%Y-%m-%d} {'23:59:59' if end_of_day else '00:00:00'}"
 
 
 class AbbRelayClient:
@@ -220,7 +262,7 @@ class AbbRelayClient:
         raise last_err or AbbApiError("relay login failed")
 
     async def _connect_url(self, url: str) -> None:
-        self._ws = await self._session.ws_connect(url, heartbeat=None, timeout=20)
+        self._ws = await asyncio.wait_for(self._session.ws_connect(url, heartbeat=None), 20)
         self.authenticated = False
         self._token = bytes(8)
         login_fut: asyncio.Future = asyncio.get_running_loop().create_future()

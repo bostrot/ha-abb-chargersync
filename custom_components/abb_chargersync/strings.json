@@ -4,11 +4,16 @@
       "user": {
         "title": "ABB ChargerSync account",
         "description": "Sign in with the same e-mail and password you use in the ABB ChargerSync app.",
-        "data": { "email": "E-mail", "password": "Password" }
+        "data": {
+          "email": "E-mail",
+          "password": "Password"
+        }
       },
       "reauth_confirm": {
         "title": "Re-authenticate",
-        "data": { "password": "Password" }
+        "data": {
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -36,37 +41,126 @@
       "status": {
         "name": "Status",
         "state": {
-          "idle": "Idle", "plugged_in": "Plugged in", "waiting_for_ev": "Waiting for EV",
-          "reserved": "Reserved", "suspended_evse": "Suspended (EVSE)", "suspended_ev": "Suspended (EV)",
-          "charging": "Charging", "paused": "Paused", "charge_finished": "Charge finished",
-          "unavailable": "Unavailable", "fault": "Fault", "unknown": "Unknown"
+          "idle": "Idle",
+          "plugged_in": "Plugged in",
+          "waiting_for_ev": "Waiting for EV",
+          "reserved": "Reserved",
+          "suspended_evse": "Suspended (EVSE)",
+          "suspended_ev": "Suspended (EV)",
+          "charging": "Charging",
+          "paused": "Paused",
+          "charge_finished": "Charge finished",
+          "unavailable": "Unavailable",
+          "fault": "Fault",
+          "unknown": "Unknown"
         }
       },
-      "power": { "name": "Power" },
-      "session_energy": { "name": "Session energy" },
-      "session_duration": { "name": "Session duration" },
-      "current_l1": { "name": "Current L1" },
-      "current_l2": { "name": "Current L2" },
-      "current_l3": { "name": "Current L3" },
-      "voltage_l1": { "name": "Voltage L1" },
-      "voltage_l2": { "name": "Voltage L2" },
-      "voltage_l3": { "name": "Voltage L3" },
-      "rated_current": { "name": "Rated current" },
-      "fault_code": { "name": "Fault code" },
-      "max_current_limit": { "name": "Hardware current limit" },
-      "relay_error": { "name": "Relay status" }
+      "power": {
+        "name": "Power"
+      },
+      "session_energy": {
+        "name": "Session energy"
+      },
+      "session_duration": {
+        "name": "Session duration"
+      },
+      "current_l1": {
+        "name": "Current L1"
+      },
+      "current_l2": {
+        "name": "Current L2"
+      },
+      "current_l3": {
+        "name": "Current L3"
+      },
+      "voltage_l1": {
+        "name": "Voltage L1"
+      },
+      "voltage_l2": {
+        "name": "Voltage L2"
+      },
+      "voltage_l3": {
+        "name": "Voltage L3"
+      },
+      "rated_current": {
+        "name": "Rated current"
+      },
+      "fault_code": {
+        "name": "Fault code"
+      },
+      "max_current_limit": {
+        "name": "Hardware current limit"
+      },
+      "relay_error": {
+        "name": "Relay status"
+      }
     },
     "binary_sensor": {
-      "online": { "name": "Online" },
-      "charging": { "name": "Charging" },
-      "plugged_in": { "name": "Plugged in" }
+      "online": {
+        "name": "Online"
+      },
+      "charging": {
+        "name": "Charging"
+      },
+      "plugged_in": {
+        "name": "Plugged in"
+      }
     },
-    "number": { "max_current": { "name": "Max charging current" } },
-    "switch": { "charging": { "name": "Charging" } },
+    "number": {
+      "max_current": {
+        "name": "Max charging current"
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Charging"
+      }
+    },
     "button": {
-      "start_charging": { "name": "Start charging" },
-      "stop_charging": { "name": "Stop charging" },
-      "reconnect": { "name": "Reconnect relay" }
+      "start_charging": {
+        "name": "Start charging"
+      },
+      "stop_charging": {
+        "name": "Stop charging"
+      },
+      "reconnect": {
+        "name": "Reconnect relay"
+      },
+      "monthly_report": {
+        "name": "Request monthly report"
+      }
+    }
+  },
+  "services": {
+    "request_report": {
+      "name": "Request session report",
+      "description": "Asks the ABB cloud to e-mail a report of charging sessions (PDF, CSV or Excel). Defaults to the current month and the account's e-mail address.",
+      "fields": {
+        "device_id": {
+          "name": "Charger",
+          "description": "The charger to export sessions for."
+        },
+        "start_date": {
+          "name": "Start date",
+          "description": "First day to include. Defaults to the first day of the current month."
+        },
+        "end_date": {
+          "name": "End date",
+          "description": "Last day to include. Defaults to today."
+        },
+        "format": {
+          "name": "Format",
+          "description": "File format of the report."
+        },
+        "email": {
+          "name": "E-mail",
+          "description": "Recipient address. Defaults to the ChargerSync account address."
+        },
+        "company_only": {
+          "name": "Company car sessions only",
+          "description": "Limit the report to sessions flagged as company car charging."
+        }
+      }
     }
   }
 }

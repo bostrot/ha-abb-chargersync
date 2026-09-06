@@ -119,8 +119,8 @@ Path is relative to API_HOST. `{id}` = numeric charger id from `/devices`.
 | **DELETE** | **`api/v2/active-sessions/{sessionId}`** | stop session (`sessionId` is the string `id` of ActiveSession) |
 | GET | `api/v2/devices/{id}/sessions?page=&per_page=&startTime=&endTime=&cardNumber=&isCompanyCarSession=` | paginated history |
 | POST | `api/v2/devices/{id}/sessions` | upload sessions read from charger (`UploadDeviceSessions`) |
-| POST | `api/v2/devices/{id}/sessions/export` | export |
-| GET/POST | `api/v2/devices/{id}/sessions/auto-export` | |
+| POST | `api/v2/devices/{id}/sessions/export` | JSON `ExportSessionsRequest {startTime, endTime, cardNumber?, format, email, isCompanyCarSession?}`; times as `yyyy-MM-dd HH:mm:ss`, `format` ∈ `pdf`/`csv`/`excel`, `email` = `users/me.authen`. The cloud e-mails the file; nothing is returned. |
+| GET/POST | `api/v2/devices/{id}/sessions/auto-export` | `AutoExport {enabled, format, cycle:int, email, cardNumber?, isCompanyCarSession?, userId}`; monthly report mailed on the first day of the month |
 | POST | `api/v2/sessions/{id}` | toggle company-car flag |
 | GET | `api/v2/devices/{id}/trends?startTime=&endTime=&type=&cardNumber=&isCompanyCarSession=` | statistics |
 | GET/POST | `api/v2/devices/{id}/price` | energy plan |
