@@ -207,10 +207,7 @@ class AbbCloudClient:
         return plan if isinstance(plan, dict) and plan else None
 
     async def set_energy_plan(self, device_id: int, plan: dict[str, Any]) -> None:
-        body = {key: plan.get(key, "") for key in ENERGY_PLAN_FIELDS}
-        body["open"] = int(plan.get("open") or 1)
-        body["currencyType"] = int(plan.get("currencyType") or 0)
-        await self.request("POST", f"api/v2/devices/{device_id}/price", json=body)
+        await self.request("POST", f"api/v2/devices/{device_id}/price", json=energy_plan_body(plan))
 
     async def get_currencies(self) -> list[dict[str, Any]]:
         res = await self.request("GET", "api/v2/currencies")
@@ -235,6 +232,54 @@ class AbbCloudClient:
         return await self.request(
             "GET", f"api/v2/devices/{device_id}/sessions", params={"page": page, "per_page": per_page}
         )
+
+
+DEFAULT_PEAK_WINDOWS = {
+    "offPeakSt": "22:00",
+    "offPeakEt": "06:00",
+    "midPeakSt": "06:00",
+    "midPeakEt": "17:00",
+    "onPeakSt": "17:00",
+    "onPeakEt": "22:00",
+}
+
+
+def _normalize_hour(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    parts = text.split(":")
+    try:
+        hour = int(parts[0])
+        minute = int(parts[1]) if len(parts) > 1 and parts[1] else 0
+    except ValueError:
+        return text
+    return f"{hour:02d}:{minute:02d}"
+
+
+def _normalize_price(value: Any) -> str:
+    text = str(value if value is not None else "").strip().replace(",", ".")
+    if text.count(".") > 1:
+        text = text.replace(".", "", text.count(".") - 1)
+    return text
+
+
+def energy_plan_body(plan: dict[str, Any]) -> dict[str, Any]:
+    """Build the POST body the way the app does; time-of-use needs all three windows."""
+    body: dict[str, Any] = {}
+    for key in ENERGY_PLAN_FIELDS:
+        raw = plan.get(key)
+        body[key] = _normalize_price(raw) if key.endswith("Price") else _normalize_hour(raw)
+    body["open"] = int(plan.get("open") or 1)
+    body["currencyType"] = int(plan.get("currencyType") or 0)
+    if body["open"] == 2:
+        for key, default in DEFAULT_PEAK_WINDOWS.items():
+            if not body[key]:
+                body[key] = default
+        for key in ("onPeakPrice", "midPeakPrice", "offPeakPrice"):
+            if not body[key]:
+                body[key] = body["averagePrice"] or "0"
+    return body
 
 
 def _api_datetime(value: datetime | date, end_of_day: bool) -> str:

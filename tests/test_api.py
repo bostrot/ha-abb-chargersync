@@ -208,10 +208,32 @@ async def test_energy_plan_roundtrip(cloud_env):
     body = fake.plans[0]
     assert body["averagePrice"] == "0.35"
     assert body["onPeakPrice"] == "0.40"
-    assert body["midPeakSt"] == ""
+    assert body["midPeakSt"] == "06:00"
+    assert body["midPeakPrice"] == "0.35"
     assert body["open"] == 2
     assert body["currencyType"] == 3
     assert set(body) == set(api.ENERGY_PLAN_FIELDS) | {"open", "currencyType"}
+
+
+def test_energy_plan_body_normalises_like_the_app():
+    body = api.energy_plan_body({"open": 1, "currencyType": 3, "averagePrice": "0,36", "onPeakSt": "7:00", "onPeakEt": "9:5"})
+    assert body["averagePrice"] == "0.36"
+    assert body["onPeakSt"] == "07:00"
+    assert body["onPeakEt"] == "09:05"
+    assert body["offPeakSt"] == ""
+
+
+def test_energy_plan_body_fills_time_of_use_defaults():
+    body = api.energy_plan_body({"open": 2, "currencyType": 3, "averagePrice": "0.36", "midPeakSt": "08:00", "midPeakPrice": "0.3"})
+    assert body["offPeakSt"] == "22:00"
+    assert body["offPeakEt"] == "06:00"
+    assert body["midPeakSt"] == "08:00"
+    assert body["midPeakEt"] == "17:00"
+    assert body["onPeakSt"] == "17:00"
+    assert body["onPeakEt"] == "22:00"
+    assert body["onPeakPrice"] == "0.36"
+    assert body["midPeakPrice"] == "0.3"
+    assert body["offPeakPrice"] == "0.36"
 
 
 async def test_energy_plan_missing_is_none(cloud_env):

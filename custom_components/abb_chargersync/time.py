@@ -69,7 +69,6 @@ class PeakTime(AbbChargerEntity, TimeEntity):
 
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:cash-clock"
-    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, key: str) -> None:
         super().__init__(coordinator, key)
