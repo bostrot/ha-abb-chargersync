@@ -1,0 +1,72 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ABB ChargerSync account",
+        "description": "Sign in with the same e-mail and password you use in the ABB ChargerSync app.",
+        "data": { "email": "E-mail", "password": "Password" }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "data": { "password": "Password" }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid e-mail or password",
+      "cannot_connect": "Could not reach the ABB cloud",
+      "no_devices": "No chargers are bound to this account"
+    },
+    "abort": {
+      "already_configured": "This account is already configured",
+      "reauth_successful": "Re-authentication successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Polling interval (seconds)",
+          "use_relay": "Use cloud remote-control relay for live data (recommended)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Status",
+        "state": {
+          "idle": "Idle", "plugged_in": "Plugged in", "waiting_for_ev": "Waiting for EV",
+          "reserved": "Reserved", "suspended_evse": "Suspended (EVSE)", "suspended_ev": "Suspended (EV)",
+          "charging": "Charging", "paused": "Paused", "charge_finished": "Charge finished",
+          "unavailable": "Unavailable", "fault": "Fault", "unknown": "Unknown"
+        }
+      },
+      "power": { "name": "Power" },
+      "session_energy": { "name": "Session energy" },
+      "session_duration": { "name": "Session duration" },
+      "current_l1": { "name": "Current L1" },
+      "current_l2": { "name": "Current L2" },
+      "current_l3": { "name": "Current L3" },
+      "voltage_l1": { "name": "Voltage L1" },
+      "voltage_l2": { "name": "Voltage L2" },
+      "voltage_l3": { "name": "Voltage L3" },
+      "rated_current": { "name": "Rated current" },
+      "fault_code": { "name": "Fault code" },
+      "max_current_limit": { "name": "Hardware current limit" },
+      "relay_error": { "name": "Relay status" }
+    },
+    "binary_sensor": {
+      "online": { "name": "Online" },
+      "charging": { "name": "Charging" },
+      "plugged_in": { "name": "Plugged in" }
+    },
+    "number": { "max_current": { "name": "Max charging current" } },
+    "switch": { "charging": { "name": "Charging" } },
+    "button": {
+      "start_charging": { "name": "Start charging" },
+      "stop_charging": { "name": "Stop charging" },
+      "reconnect": { "name": "Reconnect relay" }
+    }
+  }
+}
